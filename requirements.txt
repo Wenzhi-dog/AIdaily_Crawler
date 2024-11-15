@@ -1,5 +1,5 @@
-requests>=2.31.0
-beautifulsoup4>=4.12.2
-pandas>=2.1.4
-lxml>=4.9.3
-html5lib>=1.1 
+requests==2.31.0
+beautifulsoup4==4.12.3
+lxml==5.1.0
+python-dateutil==2.8.2
+schedule==1.2.0 
