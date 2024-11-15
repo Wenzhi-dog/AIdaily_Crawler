@@ -40,6 +40,7 @@ logs/
 images/
 *.json
 !requirements.json
+res/
 
 # System
 .DS_Store
