@@ -151,14 +151,27 @@ class AiNewsCrawler:
                 # 提取内容
                 content = ''
                 content_selectors = [
-                    'div.article p',
+                    'div.article p',  # 新浪新闻的段落通常在 p 标签中
                     'div[id="article"] p',
                     'div[class*="article-content"] p'
                 ]
                 for selector in content_selectors:
                     paragraphs = soup.select(selector)
                     if paragraphs:
-                        content = ' '.join([p.text.strip() for p in paragraphs if p.text.strip()])
+                        # 过滤掉不需要的段落（如责任编辑、来源等）
+                        filtered_paragraphs = []
+                        for p in paragraphs:
+                            text = p.get_text().strip()
+                            # 跳过编辑、来源等信息
+                            if any(skip in text for skip in ['责任编辑', '来源', '记者', '编辑', '每经编辑']):
+                                continue
+                            # 跳过空段落
+                            if not text:
+                                continue
+                            # 保留段落的HTML格式
+                            filtered_paragraphs.append(f"<p>{text}</p>")
+                        
+                        content = ''.join(filtered_paragraphs)
                         break
                 
                 if not content:
@@ -204,8 +217,8 @@ class AiNewsCrawler:
                 news_data = {
                     '_id': hashlib.md5(url.encode()).hexdigest(),
                     'title': title,
-                    'brief': content.split('。')[0] + '。' if content else '',
-                    'content': content,
+                    'brief': BeautifulSoup(content, 'lxml').get_text()[:100] + '...',
+                    'content': content,  # 现在content只包含格式化的段落
                     'createTime': date,
                     'url': url,
                     'imageUrl': image_url,
@@ -357,3 +370,37 @@ class AiNewsCrawler:
             self.logger.error(f"爬取新浪科技新闻失败: {str(e)}")
 
         return news_list
+
+    def get_article_content(self, url):
+        try:
+            response = requests.get(url, headers=self.headers, timeout=10)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # 根据不同网站的结构选择合适的内容选择器
+            article_content = None
+            
+            # 对于常见新闻网站的内容提取
+            if 'sina.com' in url:
+                article_content = soup.find('div', class_='article')
+            elif 'qq.com' in url:
+                article_content = soup.find('div', class_='content-article')
+            else:
+                # 通用提取方案，查找可能包含文章内容的标签
+                article_content = soup.find(['article', 'div.article', 'div.content'])
+            
+            if article_content:
+                # 保留HTML标签，但清理不必要的属性
+                for tag in article_content.find_all(True):
+                    allowed_attrs = ['href', 'src']  # 允许保留的属性
+                    attrs = dict(tag.attrs)
+                    for attr in attrs:
+                        if attr not in allowed_attrs:
+                            del tag[attr]
+                
+                # 返回清理后的HTML内容
+                return str(article_content)
+            return "无法提取文章内容"
+            
+        except Exception as e:
+            print(f"获取文章内容时出错: {str(e)}")
+            return "获取内容失败"
