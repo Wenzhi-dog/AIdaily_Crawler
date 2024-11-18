@@ -225,7 +225,7 @@ class AiNewsCrawler:
                     'url': url,
                     'imageUrl': image_url,
                     'isRecommend': False,
-                    'hasImage': bool(image_url)  # 根据imageUrl是否存在来设置hasImage
+                    'hasImage': False  # 始终设置为 False
                 }
                 
                 if self._validate_news_data(news_data):
@@ -314,7 +314,6 @@ class AiNewsCrawler:
         csv_path = f'res/sina_{self.date}.csv'
         if os.path.exists(csv_path):
             try:
-                # 读取已有的CSV文件
                 df = pd.read_csv(csv_path)
                 if 'url' in df.columns:
                     existing_urls = set(df['url'].tolist())
@@ -323,82 +322,125 @@ class AiNewsCrawler:
                 self.logger.error(f"读取现有CSV文件失败: {str(e)}")
         
         try:
-            # 只爬取新浪科技首页
-            base_url = "https://tech.sina.com.cn/"
-            try:
-                response = self._make_request(base_url)
-                if not response:
-                    return news_list
-                
-                # 设置正���的编码
-                response.encoding = 'utf-8'
-                soup = BeautifulSoup(response.text, 'lxml')
-                
-                # 获取新闻列表
-                news_items = []
-                
-                # 定义所有可能包含新闻链接的选择器
-                selectors = {
-                    '.tech-news a': True,
-                    '.feed-card-item h2 a': True,
-                    '.news-list a': True,
-                    '.main-list a': True,
-                    'article a': True,
-                    '.seo_data_list a': True,
-                }
-                
-                # 遍历所有选择器获取链接和标题
-                for selector in selectors:
-                    items = soup.select(selector)
-                    for item in items:
-                        # 检查链接是否存在
-                        url = item.get('href', '')
-                        if not url:
-                            continue
-                        
-                        # 确保URL是完整的
-                        if not url.startswith('http'):
-                            url = 'https:' + url if url.startswith('//') else 'https://tech.sina.com.cn' + url
-                        
-                        # 如果URL已经存在于现有数据中，跳过
-                        if url in existing_urls:
-                            continue
-                        
-                        # 获取标题文本
-                        title = item.get_text(strip=True)
-                        if not title:
-                            continue
-                        
-                        # 检查标题是否包含关键词
-                        if any(keyword.lower() in title.lower() for keyword in self.keywords):
-                            news_items.append(item)
-                            self.logger.info(f"找到新的相关标题: {title}")
-                
-                self.logger.info(f"找到 {len(news_items)} 条新的相关新闻链接")
-                
-                # 处理每条新闻
-                for item in news_items:
+            # 爬取新浪科技首页和新闻列表页
+            base_urls = [
+                "https://tech.sina.com.cn/",  # 首页
+                "https://tech.sina.com.cn/roll/",  # 滚动新闻
+            ]
+            
+            for base_url in base_urls:
+                page = 1
+                while True:
                     try:
-                        news = self._parse_sina_news(item)
-                        if news and self._is_valid_news(news):
-                            # 再次检查URL是否已存在
-                            if news['url'] not in existing_urls and not any(existing['url'] == news['url'] for existing in news_list):
-                                news_list.append(news)
-                                self.logger.info(f"成功解析新闻: {news['title']}")
+                        # 构建URL（对于首页，page=1时使用原始URL，否则使用分页URL）
+                        if "roll" in base_url:
+                            if page == 1:
+                                url = base_url
+                            else:
+                                url = f"https://tech.sina.com.cn/roll/index_0_0_{page}.shtml"
+                        else:
+                            if page > 1:
+                                break  # 首页不需要翻页
+                            url = base_url
+                        
+                        self.logger.info(f"正在爬取页面: {url}")
+                        response = self._make_request(url)
+                        if not response:
+                            break
+                        
+                        # 设置正确的编码
+                        response.encoding = 'utf-8'
+                        soup = BeautifulSoup(response.text, 'lxml')
+                        
+                        # 获取新闻列表
+                        news_items = []
+                        
+                        # 定义所有可能包含新闻链接的选择器
+                        if "roll" in url:
+                            # 滚动新闻页面的选择器
+                            selectors = {
+                                'ul.list_009 li a': True,
+                                '.listBlk a': True,
+                            }
+                        else:
+                            # 首页的选择器
+                            selectors = {
+                                '.tech-news a': True,
+                                '.feed-card-item h2 a': True,
+                                '.news-list a': True,
+                                '.main-list a': True,
+                                'article a': True,
+                                '.seo_data_list a': True,
+                            }
+                        
+                        # 遍历所有选择器获取链接和标题
+                        found_news = False
+                        for selector in selectors:
+                            items = soup.select(selector)
+                            for item in items:
+                                # 检查链接是否存在
+                                url = item.get('href', '')
+                                if not url:
+                                    continue
+                                
+                                # 确保URL是完整的
+                                if not url.startswith('http'):
+                                    url = 'https:' + url if url.startswith('//') else 'https://tech.sina.com.cn' + url
+                                
+                                # 如果URL已经存在于现有数据中，跳过
+                                if url in existing_urls:
+                                    continue
+                                
+                                # 获取标题文��
+                                title = item.get_text(strip=True)
+                                if not title:
+                                    continue
+                                
+                                # 检查标题是否包含关键词
+                                if any(keyword.lower() in title.lower() for keyword in self.keywords):
+                                    news_items.append(item)
+                                    found_news = True
+                                    self.logger.info(f"找到新的相关标题: {title}")
+                        
+                        if not found_news and page > 1:
+                            # 如果当前页面没有找到相关新闻，并且不是第一页，则停止翻页
+                            self.logger.info("当前页面未找到相关新闻，停止翻页")
+                            break
+                        
+                        # 处理每条新闻
+                        for item in news_items:
+                            try:
+                                news = self._parse_sina_news(item)
+                                if news and self._is_valid_news(news):
+                                    # 再次检查URL是否已存在
+                                    if news['url'] not in existing_urls and not any(existing['url'] == news['url'] for existing in news_list):
+                                        news_list.append(news)
+                                        self.logger.info(f"成功解析新闻: {news['title']}")
+                            except Exception as e:
+                                self.logger.error(f"处理新闻失败: {str(e)}")
+                                continue
+                        
+                        # 检查是否需要继续翻页
+                        if "roll" not in url or not found_news:
+                            break
+                        
+                        page += 1
+                        # 设置一个合理的翻页上限，防止无限循环
+                        if page > 20:  # 最多爬取20页
+                            self.logger.info("达到最大页数限制，停止翻页")
+                            break
+                        
                     except Exception as e:
-                        self.logger.error(f"处理新闻失败: {str(e)}")
-                        continue
+                        self.logger.error(f"处理页面失败: {url}, 错误: {str(e)}")
+                        break
 
-            except Exception as e:
-                self.logger.error(f"处理新浪科技首页失败: {str(e)}")
+            if news_list:
+                self.logger.info(f"本次爬取到 {len(news_list)} 条新的新闻")
+            else:
+                self.logger.info("没有找到新的新闻")
 
         except Exception as e:
             self.logger.error(f"爬取新浪科技新闻失败: {str(e)}")
-
-        if news_list:
-            self.logger.info(f"本次爬取到 {len(news_list)} 条新的新闻")
-        else:
-            self.logger.info("没有找到新的新闻")
 
         return news_list
 
