@@ -125,11 +125,40 @@ def _get_file_extension(url: str) -> str:
         return ext
     return '.jpg'  # 默认使用.jpg
 
-def save_to_json(data: list, date: str):
-    """保存爬取结果到JSON文件"""
-    file_path = f"{date}.json"
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2) 
+def save_to_json(news_list, date):
+    """保存新闻数据到JSON文件，保留已有数据"""
+    # 确保 res 目录存在
+    if not os.path.exists('res'):
+        os.makedirs('res')
+    
+    output_path = f'res/sina_{date}.json'
+    
+    # 读取现有的JSON文件（如果存在）
+    existing_news = []
+    if os.path.exists(output_path):
+        try:
+            with open(output_path, 'r', encoding='utf-8') as f:
+                existing_news = json.load(f)
+            logging.info(f"从现有文件中读取到 {len(existing_news)} 条新闻")
+        except Exception as e:
+            logging.error(f"读取现有JSON文件失败: {str(e)}")
+    
+    # 使用URL作为唯一标识，合并现有数据和新数据
+    url_to_news = {news['url']: news for news in existing_news}
+    
+    # 更新或添加新的新闻
+    for news in news_list:
+        # 确保 hasImage 和 isRecommend 是布尔类型
+        news['hasImage'] = bool(news['hasImage'])
+        news['isRecommend'] = bool(news['isRecommend'])
+        url_to_news[news['url']] = news
+    
+    # 将合并后的数据转换为列表
+    merged_news = list(url_to_news.values())
+    
+    # 保存合并后的数据
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(merged_news, f, ensure_ascii=False, indent=2)
 
 def save_to_csv(news_list, date):
     """保存新闻数据到CSV文件，保留已有数据"""
@@ -144,16 +173,23 @@ def save_to_csv(news_list, date):
     if os.path.exists(output_path):
         try:
             df_existing = pd.read_csv(output_path)
+            # 将 hasImage 和 isRecommend 转换为布尔类型
+            if 'hasImage' in df_existing.columns:
+                df_existing['hasImage'] = df_existing['hasImage'].astype(bool)
+            if 'isRecommend' in df_existing.columns:
+                df_existing['isRecommend'] = df_existing['isRecommend'].astype(bool)
             existing_news = df_existing.to_dict('records')
         except Exception as e:
             logging.error(f"读取现有CSV文件失败: {str(e)}")
     
     # 合并现有数据和新数据
-    # 使用URL作为唯一标识，避免重复
     url_to_news = {news['url']: news for news in existing_news}
     
     # 更新或添加新的新闻
     for news in news_list:
+        # 确保 hasImage 和 isRecommend 是布尔类型
+        news['hasImage'] = bool(news['hasImage'])
+        news['isRecommend'] = bool(news['isRecommend'])
         url_to_news[news['url']] = news
     
     # 将合并后的数据转换为列表
@@ -161,4 +197,9 @@ def save_to_csv(news_list, date):
     
     # 保存合并后的数据
     df = pd.DataFrame(merged_news)
+    
+    # 确保这些列是布尔类型
+    df['hasImage'] = df['hasImage'].astype(bool)
+    df['isRecommend'] = df['isRecommend'].astype(bool)
+    
     df.to_csv(output_path, index=False)

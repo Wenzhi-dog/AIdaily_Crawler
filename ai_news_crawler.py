@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 from requests.exceptions import RequestException, Timeout, TooManyRedirects
-from utils import download_image, save_to_csv
+from utils import download_image, save_to_json
 import os
 import pandas as pd
 
@@ -52,8 +52,8 @@ class AiNewsCrawler:
             # 保存结果
             if all_news:
                 try:
-                    save_to_csv(all_news, self.date)
-                    self.logger.info(f"成功保存{len(all_news)}条新闻到CSV文件")
+                    save_to_json(all_news, self.date)
+                    self.logger.info(f"成功保存{len(all_news)}条新闻到JSON文件")
                 except Exception as e:
                     self.logger.error(f"保存新闻数据失败: {str(e)}")
                     raise
@@ -225,7 +225,7 @@ class AiNewsCrawler:
                     'url': url,
                     'imageUrl': image_url,
                     'isRecommend': False,
-                    'hasImage': False  # 始终设置为 False
+                    'hasImage': bool(image_url)  # 根据imageUrl是否存在来设置hasImage
                 }
                 
                 if self._validate_news_data(news_data):
@@ -310,16 +310,16 @@ class AiNewsCrawler:
         news_list = []
         existing_urls = set()
         
-        # 检查已有的CSV文件
-        csv_path = f'res/sina_{self.date}.csv'
-        if os.path.exists(csv_path):
+        # 检查已有的JSON文件
+        json_path = f'res/sina_{self.date}.json'
+        if os.path.exists(json_path):
             try:
-                df = pd.read_csv(csv_path)
-                if 'url' in df.columns:
-                    existing_urls = set(df['url'].tolist())
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    existing_news = json.load(f)
+                    existing_urls = {news['url'] for news in existing_news}
                     self.logger.info(f"从现有文件中读取到 {len(existing_urls)} 条新闻URL")
             except Exception as e:
-                self.logger.error(f"读取现有CSV文件失败: {str(e)}")
+                self.logger.error(f"读取现有JSON文件失败: {str(e)}")
         
         try:
             # 爬取新浪科技首页和新闻列表页
@@ -391,7 +391,7 @@ class AiNewsCrawler:
                                 if url in existing_urls:
                                     continue
                                 
-                                # 获取标题文��
+                                # 获取标题文
                                 title = item.get_text(strip=True)
                                 if not title:
                                     continue
