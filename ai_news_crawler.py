@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 from requests.exceptions import RequestException, Timeout, TooManyRedirects
-from utils import download_image, save_to_json
+from utils import download_image, save_to_csv
 
 class AiNewsCrawlerException(Exception):
     """自定义爬虫异常基类"""
@@ -50,8 +50,8 @@ class AiNewsCrawler:
             # 保存结果
             if all_news:
                 try:
-                    save_to_json(all_news, self.date)
-                    self.logger.info(f"成功保存{len(all_news)}条新闻")
+                    save_to_csv(all_news, self.date)
+                    self.logger.info(f"成功保存{len(all_news)}条新闻到CSV文件")
                 except Exception as e:
                     self.logger.error(f"保存新闻数据失败: {str(e)}")
                     raise
@@ -222,7 +222,8 @@ class AiNewsCrawler:
                     'createTime': date,
                     'url': url,
                     'imageUrl': image_url,
-                    'isRecommend': False
+                    'isRecommend': False,
+                    'hasImage': bool(image_url)  # 根据imageUrl是否存在来设置hasImage
                 }
                 
                 if self._validate_news_data(news_data):

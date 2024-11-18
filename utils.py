@@ -5,8 +5,9 @@ import requests
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict
 from requests.exceptions import RequestException, Timeout
+import csv
 
 def setup_logging():
     """设置日志配置"""
@@ -128,3 +129,21 @@ def save_to_json(data: list, date: str):
     file_path = f"{date}.json"
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2) 
+
+def save_to_csv(news_list: List[Dict], date: str) -> None:
+    """将新闻数据保存为CSV文件
+    
+    Args:
+        news_list: 新闻数据列表
+        date: 日期字符串，格式为YYYY-MM-DD
+    """
+    filename = f"{date}.csv"
+    
+    # 定义CSV的表头
+    fieldnames = ['_id', 'title', 'brief', 'content', 'createTime', 'url', 
+                 'imageUrl', 'isRecommend', 'hasImage']
+    
+    with open(filename, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(news_list)
