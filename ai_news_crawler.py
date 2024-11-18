@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from requests.exceptions import RequestException, Timeout, TooManyRedirects
 from utils import download_image, save_to_csv
+import os
+import pandas as pd
 
 class AiNewsCrawlerException(Exception):
     """自定义爬虫异常基类"""
@@ -306,6 +308,20 @@ class AiNewsCrawler:
     def crawl_sina(self) -> List[Dict]:
         """爬取新浪科技新闻"""
         news_list = []
+        existing_urls = set()
+        
+        # 检查已有的CSV文件
+        csv_path = f'res/sina_{self.date}.csv'
+        if os.path.exists(csv_path):
+            try:
+                # 读取已有的CSV文件
+                df = pd.read_csv(csv_path)
+                if 'url' in df.columns:
+                    existing_urls = set(df['url'].tolist())
+                    self.logger.info(f"从现有文件中读取到 {len(existing_urls)} 条新闻URL")
+            except Exception as e:
+                self.logger.error(f"读取现有CSV文件失败: {str(e)}")
+        
         try:
             # 只爬取新浪科技首页
             base_url = "https://tech.sina.com.cn/"
@@ -314,7 +330,7 @@ class AiNewsCrawler:
                 if not response:
                     return news_list
                 
-                # 设置正确的编码
+                # 设置正���的编码
                 response.encoding = 'utf-8'
                 soup = BeautifulSoup(response.text, 'lxml')
                 
@@ -323,12 +339,12 @@ class AiNewsCrawler:
                 
                 # 定义所有可能包含新闻链接的选择器
                 selectors = {
-                    '.tech-news a': True,           # 科技新闻区域的链接
-                    '.feed-card-item h2 a': True,   # 新闻卡片的标题链接
-                    '.news-list a': True,           # 新闻列表的链接
-                    '.main-list a': True,           # 主要新闻列表的链接
-                    'article a': True,              # 文章区域的链接
-                    '.seo_data_list a': True,       # SEO区域的链接
+                    '.tech-news a': True,
+                    '.feed-card-item h2 a': True,
+                    '.news-list a': True,
+                    '.main-list a': True,
+                    'article a': True,
+                    '.seo_data_list a': True,
                 }
                 
                 # 遍历所有选择器获取链接和标题
@@ -336,7 +352,16 @@ class AiNewsCrawler:
                     items = soup.select(selector)
                     for item in items:
                         # 检查链接是否存在
-                        if not item.get('href'):
+                        url = item.get('href', '')
+                        if not url:
+                            continue
+                        
+                        # 确保URL是完整的
+                        if not url.startswith('http'):
+                            url = 'https:' + url if url.startswith('//') else 'https://tech.sina.com.cn' + url
+                        
+                        # 如果URL已经存在于现有数据中，跳过
+                        if url in existing_urls:
                             continue
                         
                         # 获取标题文本
@@ -347,19 +372,19 @@ class AiNewsCrawler:
                         # 检查标题是否包含关键词
                         if any(keyword.lower() in title.lower() for keyword in self.keywords):
                             news_items.append(item)
-                            self.logger.info(f"找到相关标题: {title}")
+                            self.logger.info(f"找到新的相关标题: {title}")
                 
-                self.logger.info(f"在新浪科技首页找到 {len(news_items)} 条相关新闻链接")
+                self.logger.info(f"找到 {len(news_items)} 条新的相关新闻链接")
                 
                 # 处理每条新闻
                 for item in news_items:
                     try:
                         news = self._parse_sina_news(item)
                         if news and self._is_valid_news(news):
-                            # 检查是否已经存在相同的新闻(根据URL或标题)
-                            if not any(existing['url'] == news['url'] for existing in news_list):
+                            # 再次检查URL是否已存在
+                            if news['url'] not in existing_urls and not any(existing['url'] == news['url'] for existing in news_list):
                                 news_list.append(news)
-                                self.logger.info(f"成功解析新: {news['title']}")
+                                self.logger.info(f"成功解析新闻: {news['title']}")
                     except Exception as e:
                         self.logger.error(f"处理新闻失败: {str(e)}")
                         continue
@@ -369,6 +394,11 @@ class AiNewsCrawler:
 
         except Exception as e:
             self.logger.error(f"爬取新浪科技新闻失败: {str(e)}")
+
+        if news_list:
+            self.logger.info(f"本次爬取到 {len(news_list)} 条新的新闻")
+        else:
+            self.logger.info("没有找到新的新闻")
 
         return news_list
 
