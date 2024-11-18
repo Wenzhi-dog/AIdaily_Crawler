@@ -151,30 +151,30 @@ class AiNewsCrawler:
                 # 提取内容
                 content = ''
                 content_selectors = [
-                    'div.article p',  # 新浪新闻的段落通常在 p 标签中
+                    'div.article p',
                     'div[id="article"] p',
                     'div[class*="article-content"] p'
                 ]
                 for selector in content_selectors:
                     paragraphs = soup.select(selector)
                     if paragraphs:
-                        # 过滤掉不需要的段落（如责任编辑、来源等）
-                        filtered_paragraphs = []
-                        for p in paragraphs:
-                            text = p.get_text().strip()
-                            # 跳过编辑、来源等信息
-                            if any(skip in text for skip in ['责任编辑', '来源', '记者', '编辑', '每经编辑']):
-                                continue
-                            # 跳过空段落
-                            if not text:
-                                continue
-                            # 保留段落的HTML格式
-                            filtered_paragraphs.append(f"<p>{text}</p>")
-                        
-                        content = ''.join(filtered_paragraphs)
+                        # 将所有段落组合成内容
+                        content = ''.join([f"<p>{p.get_text().strip()}</p>" for p in paragraphs if p.get_text().strip()])
                         break
                 
                 if not content:
+                    return None
+                
+                # 检查是否为广告内容
+                ad_indicators = [
+                    '<p>产品答疑|网站律师|SINA English</p>',
+                    '<p>Copyright © 1996-2024 SINA Corporation</p>',
+                    '<p>All Rights Reserved 新浪公司 版权所有</p>'
+                ]
+                
+                # 如果内容包含广告特征，直接返回None
+                if any(indicator in content for indicator in ad_indicators):
+                    self.logger.info(f"跳过广告内容: {url}")
                     return None
                 
                 # 提取日期
@@ -359,7 +359,7 @@ class AiNewsCrawler:
                             # 检查是否已经存在相同的新闻(根据URL或标题)
                             if not any(existing['url'] == news['url'] for existing in news_list):
                                 news_list.append(news)
-                                self.logger.info(f"成功解析新闻: {news['title']}")
+                                self.logger.info(f"成功解析新: {news['title']}")
                     except Exception as e:
                         self.logger.error(f"处理新闻失败: {str(e)}")
                         continue
