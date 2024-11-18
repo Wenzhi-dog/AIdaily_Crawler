@@ -132,14 +132,33 @@ def save_to_json(data: list, date: str):
         json.dump(data, f, ensure_ascii=False, indent=2) 
 
 def save_to_csv(news_list, date):
-    """保存新闻数据到CSV文件"""
+    """保存新闻数据到CSV文件，保留已有数据"""
     # 确保 res 目录存在
     if not os.path.exists('res'):
         os.makedirs('res')
     
-    # 将数据转换为DataFrame
-    df = pd.DataFrame(news_list)
-    
-    # 保存到res目录下
     output_path = f'res/sina_{date}.csv'
+    
+    # 读取现有的CSV文件（如果存在）
+    existing_news = []
+    if os.path.exists(output_path):
+        try:
+            df_existing = pd.read_csv(output_path)
+            existing_news = df_existing.to_dict('records')
+        except Exception as e:
+            logging.error(f"读取现有CSV文件失败: {str(e)}")
+    
+    # 合并现有数据和新数据
+    # 使用URL作为唯一标识，避免重复
+    url_to_news = {news['url']: news for news in existing_news}
+    
+    # 更新或添加新的新闻
+    for news in news_list:
+        url_to_news[news['url']] = news
+    
+    # 将合并后的数据转换为列表
+    merged_news = list(url_to_news.values())
+    
+    # 保存合并后的数据
+    df = pd.DataFrame(merged_news)
     df.to_csv(output_path, index=False)
