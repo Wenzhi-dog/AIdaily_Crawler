@@ -11,6 +11,7 @@ from requests.exceptions import RequestException, Timeout, TooManyRedirects
 from utils import download_image, save_to_json
 import os
 import pandas as pd
+from config import KEYWORDS
 
 class AiNewsCrawlerException(Exception):
     """自定义爬虫异常基类"""
@@ -31,9 +32,7 @@ class AiNewsCrawler:
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-        self.keywords = [
-            'AI', '人工智能', '机器学习', '深度学习', '马斯克', 'OpenAI', 'ChatGPT', 'GPT', '大语言模型', 'LLM'
-        ]
+        self.keywords = KEYWORDS  # 使用配置文件中的关键词
         self.processed_urls = set()
         self.request_interval = 1  # 请求间隔(秒)
         self.last_request_time = 0
