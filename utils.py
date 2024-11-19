@@ -127,11 +127,11 @@ def _get_file_extension(url: str) -> str:
 
 def save_to_json(news_list, date):
     """保存新闻数据到JSON文件，保留已有数据"""
-    # 确保 res 目录存在
-    if not os.path.exists('res'):
-        os.makedirs('res')
+    # 确保 res/res 目录存在
+    if not os.path.exists('res/res'):
+        os.makedirs('res/res')
     
-    output_path = f'res/sina_{date}.json'
+    output_path = f'res/res/sina_{date}.json'
     
     # 读取现有的JSON文件（如果存在）
     existing_news = []

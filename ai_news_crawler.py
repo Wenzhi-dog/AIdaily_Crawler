@@ -310,7 +310,7 @@ class AiNewsCrawler:
         existing_urls = set()
         
         # 检查已有的JSON文件
-        json_path = f'res/sina_{self.date}.json'
+        json_path = f'res/res/sina_{self.date}.json'
         if os.path.exists(json_path):
             try:
                 with open(json_path, 'r', encoding='utf-8') as f:

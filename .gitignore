@@ -71,10 +71,13 @@ coverage.xml
   
 *.csv
 
-# 如果要忽略 res 目录下的所有文件但保留目录
-res/*
-!res/.gitkeep
+# 如果要忽略 res/res 目录下的所有文件但保留目录
+res/res/*
+!res/res/.gitkeep
 
-# 或者如果要追踪 res 目录下的特定文件类型
-!res/*.csv
-!res/*.json
+# 或者如果要追踪 res/res 目录下的特定文件类型
+!res/res/*.json
+
+# 在文件中添加
+res/encode/*
+!res/encode/.gitkeep
