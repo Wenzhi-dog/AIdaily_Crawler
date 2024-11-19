@@ -18,3 +18,7 @@ KEYWORDS = [
 FILTER_KEYWORDS = [
     'air'
 ] 
+
+# 添加图片下载相关配置
+IMAGE_DOWNLOAD_TIMEOUT = 10  # 图片下载超时时间（秒）
+HTML_SAVE_DIR = 'res/html'   # HTML保存目录

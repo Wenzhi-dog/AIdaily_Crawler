@@ -9,6 +9,7 @@ from typing import Optional, List, Dict
 from requests.exceptions import RequestException, Timeout
 import csv
 import pandas as pd
+from bs4 import BeautifulSoup
 
 def setup_logging():
     """设置日志配置"""
@@ -203,3 +204,43 @@ def save_to_csv(news_list, date):
     df['isRecommend'] = df['isRecommend'].astype(bool)
     
     df.to_csv(output_path, index=False)
+
+def save_context_with_images(context, news_id):
+    """保存新闻正文内容，包含图片"""
+    # 创建存储目录
+    save_dir = os.path.join('res', 'html', news_id)
+    os.makedirs(save_dir, exist_ok=True)
+    
+    # 处理图片
+    soup = BeautifulSoup(context, 'html.parser')
+    
+    # 处理图片下载
+    for i, img in enumerate(soup.find_all('img')):
+        if img.get('src'):
+            try:
+                # 下载图片
+                img_url = img['src']
+                if not img_url.startswith('http'):
+                    img_url = 'https:' + img_url if img_url.startswith('//') else img_url
+                    
+                img_data = requests.get(img_url, timeout=10).content
+                
+                # 生成本地图片文件名
+                img_filename = f'img_{i}.jpg'
+                img_path = os.path.join(save_dir, img_filename)
+                
+                # 保存图片
+                with open(img_path, 'wb') as f:
+                    f.write(img_data)
+                
+                # 更新图片源为本地路径
+                img['src'] = img_filename
+                
+            except Exception as e:
+                print(f"下载图片失败: {e}")
+                continue
+    
+    # 保存HTML文件
+    html_path = os.path.join(save_dir, 'content.html')
+    with open(html_path, 'w', encoding='utf-8') as f:
+        f.write(str(soup))

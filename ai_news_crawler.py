@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 from requests.exceptions import RequestException, Timeout, TooManyRedirects
-from utils import download_image, save_to_json
+from utils import download_image, save_to_json, save_context_with_images
 import os
 import pandas as pd
 from config import KEYWORDS, FILTER_KEYWORDS
@@ -152,25 +152,48 @@ class AiNewsCrawler:
                 # 提取内容
                 content = ''
                 content_selectors = [
-                    'div.article p',
-                    'div[id="article"] p',
-                    'div[class*="article-content"] p'
+                    'div.article',
+                    'div[id="article"]',
+                    'div[class*="article-content"]'
                 ]
+                
                 for selector in content_selectors:
-                    paragraphs = soup.select(selector)
-                    if paragraphs:
-                        # 将所有段落组合成内容
-                        content = ''.join([f"<p>{p.get_text().strip()}</p>" for p in paragraphs if p.get_text().strip()])
-                        break
+                    article_div = soup.select_one(selector)
+                    if article_div:
+                        # 只保留 p 和 img 标签，移除其他所有标签
+                        for tag in article_div.find_all(True):
+                            if tag.name not in ['p', 'img']:
+                                tag.unwrap()  # 移除标签但保留内容
+                        
+                        # 获取清理后的内容元素
+                        content_elements = article_div.find_all(['p', 'img'])
+                        if content_elements:
+                            # 清理标签属性
+                            for elem in content_elements:
+                                if elem.name == 'img':
+                                    # 对于img标签，保留src属性并添加自适应属性
+                                    src = elem.get('src', '')
+                                    elem.attrs = {
+                                        'src': src,
+                                        'width': '100%',
+                                        'height': 'auto'
+                                    }
+                                else:
+                                    # 对于p标签，清除所有属性
+                                    elem.attrs = {}
+                            
+                            # 将清理后的元素转换为字符串并组合
+                            content = ''.join([str(elem) for elem in content_elements])
+                            break
                 
                 if not content:
                     return None
                 
-                # 检查是否为广告内容
+                # 清理广告内容
                 ad_indicators = [
-                    '<p>产品答疑|网站律师|SINA English</p>',
-                    '<p>Copyright © 1996-2024 SINA Corporation</p>',
-                    '<p>All Rights Reserved 新浪公司 版权所有</p>'
+                    '产品答疑|网站律师|SINA English',
+                    'Copyright © 1996-2024 SINA Corporation',
+                    'All Rights Reserved 新浪公司 版权所有'
                 ]
                 
                 # 如果内容包含广告特征，直接返回None
@@ -400,7 +423,7 @@ class AiNewsCrawler:
                                 if url in existing_urls:
                                     continue
                                 
-                                # 获取标题文本
+                                # 获取标题本
                                 title = item.get_text(strip=True)
                                 if not title:
                                     continue
@@ -487,3 +510,11 @@ class AiNewsCrawler:
         except Exception as e:
             print(f"获取文章内容时出错: {str(e)}")
             return "获取内容失败"
+
+    def process_news(self, news_data):
+        # ... 其他代码 ...
+        
+        if context:
+            save_context_with_images(context, news_id)
+        
+        # ... 其他代码 ...
