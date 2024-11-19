@@ -196,7 +196,7 @@ class AiNewsCrawler:
                     return None
                 
                 # 提取图片
-                image_url = ''
+                image_url = None
                 image_selectors = [
                     'div.img_wrapper img',
                     'div[class*="article-content"] img',
@@ -204,27 +204,30 @@ class AiNewsCrawler:
                 ]
                 for selector in image_selectors:
                     images = soup.select(selector)
-                    for img in images:
-                        src = img.get('src', '')
-                        if src and not src.endswith(('.gif', 'icon')):
+                    if images:  # 如果找到了图片
+                        first_img = images[0]  # 只检查第一张图片
+                        src = first_img.get('src', '')
+                        # 检查第一张图片是否为二维码或广告
+                        if (src and 
+                            not src.endswith(('.gif', 'icon')) and 
+                            'doc_qrcode' not in src and 
+                            'qrcode' not in src):
                             image_url = src
                             if not image_url.startswith('http'):
                                 image_url = 'https:' + image_url
-                            break
-                    if image_url:
-                        break
+                        break  # 无论结果如何都退出循环
                 
                 # 构建新闻数据
                 news_data = {
                     '_id': hashlib.md5(url.encode()).hexdigest(),
                     'title': title,
                     'brief': BeautifulSoup(content, 'lxml').get_text()[:100] + '...',
-                    'content': content,  # 现在content只包含格式化的段落
+                    'content': content,
                     'createTime': date,
                     'url': url,
-                    'imageUrl': image_url,
+                    'imageUrl': image_url,  # 如果第一张图是二维码，这里就是None
                     'isRecommend': False,
-                    'hasImage': bool(image_url)  # 根据imageUrl是否存在来设置hasImage
+                    'hasImage': image_url is not None  # 根据imageUrl是否为None来设置
                 }
                 
                 if self._validate_news_data(news_data):
