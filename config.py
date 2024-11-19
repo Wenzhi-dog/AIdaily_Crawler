@@ -13,3 +13,8 @@ KEYWORDS = [
     '豆包',
     'kimi'
 ] 
+
+# 需要过滤的关键词
+FILTER_KEYWORDS = [
+    'air'
+] 

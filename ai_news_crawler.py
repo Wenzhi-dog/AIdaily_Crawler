@@ -11,7 +11,7 @@ from requests.exceptions import RequestException, Timeout, TooManyRedirects
 from utils import download_image, save_to_json
 import os
 import pandas as pd
-from config import KEYWORDS
+from config import KEYWORDS, FILTER_KEYWORDS
 
 class AiNewsCrawlerException(Exception):
     """自定义爬虫异常基类"""
@@ -293,9 +293,16 @@ class AiNewsCrawler:
             if news_date_obj != target_date:
                 return False
 
-            # 检查关键词
-            text = f"{news['title']} {news['content']}"
-            if not any(keyword.lower() in text.lower() for keyword in self.keywords):
+            # 检查文本内容（转换为小写进行比较）
+            text = f"{news['title']} {news['content']}".lower()
+            
+            # 检查是否包含需要过滤的关键词（不区分大小写）
+            if any(keyword.lower() in text for keyword in FILTER_KEYWORDS):
+                self.logger.info(f"过滤包含关键词的新闻: {news['title']}")
+                return False
+
+            # 检查是否包含目标关键词（不区分大小写）
+            if not any(keyword.lower() in text for keyword in self.keywords):
                 return False
 
             return True
@@ -390,13 +397,14 @@ class AiNewsCrawler:
                                 if url in existing_urls:
                                     continue
                                 
-                                # 获取标题文
+                                # 获取标题文本
                                 title = item.get_text(strip=True)
                                 if not title:
                                     continue
                                 
-                                # 检查标题是否包含关键词
-                                if any(keyword.lower() in title.lower() for keyword in self.keywords):
+                                # 检查标题是否包含关键词（不区分大小写）
+                                title_lower = title.lower()
+                                if any(keyword.lower() in title_lower for keyword in self.keywords):
                                     news_items.append(item)
                                     found_news = True
                                     self.logger.info(f"找到新的相关标题: {title}")
