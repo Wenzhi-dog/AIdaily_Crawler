@@ -16,7 +16,11 @@ KEYWORDS = [
 
 # 需要过滤的关键词
 FILTER_KEYWORDS = [
-    'air'
+    '惠普Z8',
+    'air',
+    'Tail',
+    'ROG9',
+    '浪潮NF5280M7'
 ] 
 
 # 添加图片下载相关配置
